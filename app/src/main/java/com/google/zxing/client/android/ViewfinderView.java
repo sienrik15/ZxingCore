@@ -43,8 +43,8 @@ public final class ViewfinderView extends View {
   private static final int[] SCANNER_ALPHA = {0, 64, 128, 192, 255, 192, 128, 64};
   private static final long ANIMATION_DELAY = 80L;
   private static final int CURRENT_POINT_OPACITY = 0xA0;
-  private static final int MAX_RESULT_POINTS = 20;
-  private static final int POINT_SIZE = 6;
+  private static final int MAX_RESULT_POINTS = 30;
+  private static final int POINT_SIZE = 7;
 
   private CameraManager cameraManager;
   private final Paint paint;
@@ -69,7 +69,7 @@ public final class ViewfinderView extends View {
     laserColor = resources.getColor(R.color.viewfinder_laser);
     resultPointColor = resources.getColor(R.color.possible_result_points);
     scannerAlpha = 0;
-    possibleResultPoints = new ArrayList<>(5);
+    possibleResultPoints = new ArrayList<>(10);
     lastPossibleResultPoints = null;
   }
 
@@ -121,7 +121,7 @@ public final class ViewfinderView extends View {
       if (currentPossible.isEmpty()) {
         lastPossibleResultPoints = null;
       } else {
-        possibleResultPoints = new ArrayList<>(5);
+        possibleResultPoints = new ArrayList<>(10);
         lastPossibleResultPoints = currentPossible;
         paint.setAlpha(CURRENT_POINT_OPACITY);
         paint.setColor(resultPointColor);
