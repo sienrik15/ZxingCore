@@ -30,6 +30,9 @@ import com.google.zxing.client.android.result.ResultButtonListener;
 import com.google.zxing.client.android.result.ResultHandler;
 import com.google.zxing.client.android.result.ResultHandlerFactory;
 import com.google.zxing.client.android.result.supplement.SupplementalInfoRetriever;
+import com.google.zxing.client.android.services.ApiRetrofitUtils;
+import com.google.zxing.client.android.services.ApiService;
+import com.google.zxing.client.android.services.Modelchecking;
 import com.google.zxing.client.android.share.ShareActivity;
 
 import android.app.Activity;
@@ -70,6 +73,10 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.Map;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 /**
  * This activity opens the camera and does the actual scanning on a background thread. It draws a
  * viewfinder to help the user place the barcode correctly, shows feedback as the image processing
@@ -84,6 +91,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   private static final long DEFAULT_INTENT_RESULT_DURATION_MS = 1500L;
   private static final long BULK_MODE_SCAN_DELAY_MS = 1000L;
+  private ApiService mApiservice;
 
   private static final String[] ZXING_URLS = { "http://zxing.appspot.com/scan", "zxing://scan/" };
 
@@ -134,7 +142,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     Window window = getWindow();
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     setContentView(R.layout.capture);
-
+    mApiservice = new ApiRetrofitUtils().getApiService();
     hasSurface = false;
     historyManager = new HistoryManager(this);
     historyManager.trimHistory();
@@ -418,20 +426,43 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    * @param scaleFactor amount by which thumbnail was scaled
    * @param barcode   A greyscale bitmap of the camera data which was decoded.
    */
-  public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
+  public void handleDecode(final Result rawResult, final Bitmap barcode, final float scaleFactor) {
     inactivityTimer.onActivity();
     lastResult = rawResult;
-    ResultHandler resultHandler = ResultHandlerFactory.makeResultHandler(this, rawResult);
+    final ResultHandler resultHandler = ResultHandlerFactory.makeResultHandler(this, rawResult);
 
     boolean fromLiveScan = barcode != null;
     if (fromLiveScan) {
       historyManager.addHistoryItem(rawResult, resultHandler);
       // Then not from history, so beep/vibrate and we have an image to draw on
-      beepManager.playBeepSoundAndVibrate();
+      //beepManager.playBeepSoundAndVibrate();
       drawResultPoints(barcode, scaleFactor, rawResult);
     }
+    try {
+        mApiservice.savePost("12734",rawResult.getText()).enqueue(new Callback<Modelchecking>() {
+          @Override
+          public void onResponse(Call<Modelchecking> call, Response<Modelchecking> response) {
 
-    switch (source) {
+            if (response.isSuccessful()) {
+              if (response.body().isOk()) {
+                handleDecodeInternally(rawResult, resultHandler, barcode);
+              }
+            }
+
+          }
+
+          @Override
+          public void onFailure(Call<Modelchecking> call, Throwable t) {
+            Log.d("ERROR",t.toString());
+          }
+        });
+    }catch (Exception e){
+      e.getMessage();
+    }
+
+
+
+    /*switch (source) {
       case NATIVE_APP_INTENT:
       case PRODUCT_SEARCH_LINK:
         handleDecodeExternally(rawResult, resultHandler, barcode);
@@ -455,7 +486,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
           handleDecodeInternally(rawResult, resultHandler, barcode);
         }
         break;
-    }
+    }*/
   }
 
   /**
@@ -480,14 +511,14 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         // Hacky special case -- draw two lines, for the barcode and metadata
         drawLine(canvas, paint, points[0], points[1], scaleFactor);
         drawLine(canvas, paint, points[2], points[3], scaleFactor);
-      } else {
-        paint.setStrokeWidth(10.0f);
-        for (ResultPoint point : points) {
-          if (point != null) {
-            canvas.drawPoint(scaleFactor * point.getX(), scaleFactor * point.getY(), paint);
+        } else {
+          paint.setStrokeWidth(10.0f);
+          for (ResultPoint point : points) {
+            if (point != null) {
+              canvas.drawPoint(scaleFactor * point.getX(), scaleFactor * point.getY(), paint);
+            }
           }
         }
-      }
     }
   }
 
